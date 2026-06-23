@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AniInsight — Seus animes, sua IA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0A0A0F;
+  --surface:#12121A;
+  --surface2:#1A1A26;
+  --border:#2A2A3E;
+  --accent:#C084FC;
+  --accent-dim:#7C3AED;
+  --text:#E2E8F0;
+  --muted:#94A3B8;
+  --faint:#4A5568;
+  --green:#4ADE80;
+  --amber:#FBBF24;
+  --red:#F87171;
+  --blue:#60A5FA;
+  --r:10px;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
+h1,h2,.cinzel{font-family:'Cinzel',serif}
+.mono{font-family:'JetBrains Mono',monospace}
+
+/* NAV */
+nav{display:flex;align-items:center;justify-content:space-between;padding:1rem 2rem;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:100}
+.logo{font-family:'Cinzel',serif;font-size:1.3rem;color:var(--accent);letter-spacing:.05em}
+.logo span{color:var(--text);font-weight:300}
+nav .tabs{display:flex;gap:.25rem}
+nav .tab{background:transparent;border:none;color:var(--muted);padding:.5rem 1rem;border-radius:6px;cursor:pointer;font-size:.85rem;font-family:'Inter',sans-serif;transition:all .2s}
+nav .tab.active,nav .tab:hover{color:var(--text);background:var(--surface2)}
+nav .tab.active{color:var(--accent)}
+
+/* PAGES */
+.page{display:none;min-height:calc(100vh - 60px);padding:2rem}
+.page.active{display:block}
+
+/* HOME */
+.hero{text-align:center;padding:4rem 1rem 3rem}
+.hero h1{font-size:2.8rem;letter-spacing:.08em;margin-bottom:1rem}
+.hero h1 span{color:var(--accent)}
+.hero p{color:var(--muted);max-width:520px;margin:0 auto 2.5rem;line-height:1.7;font-size:1rem}
+.search-box{display:flex;gap:.75rem;max-width:440px;margin:0 auto;flex-direction:column;align-items:stretch}
+.search-box input{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:.9rem 1.2rem;border-radius:var(--r);font-size:1rem;font-family:'Inter',sans-serif;outline:none;transition:border .2s}
+.search-box input:focus{border-color:var(--accent)}
+.search-box input::placeholder{color:var(--faint)}
+.btn{background:var(--accent);color:#0A0A0F;border:none;padding:.9rem 2rem;border-radius:var(--r);font-size:.95rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all .2s;white-space:nowrap}
+.btn:hover{background:#A855F7;transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn-outline{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.btn-outline:hover{background:rgba(192,132,252,.1)}
+.btn-sm{padding:.5rem 1.2rem;font-size:.82rem}
+.btn-danger{background:var(--red);color:#0A0A0F}
+.btn-danger:hover{background:#EF4444}
+
+/* CARDS GRID */
+.grid{display:grid;gap:1rem}
+.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+
+/* SECTION */
+.section-title{font-family:'Cinzel',serif;font-size:1rem;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:1rem;display:flex;align-items:center;gap:.75rem}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.section-block{margin-bottom:2.5rem}
+
+/* WORK CARD */
+.work-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1rem 1rem 0;display:flex;gap:.75rem;position:relative;overflow:hidden;transition:border .2s}
+.work-card:hover{border-color:var(--faint)}
+.priority-bar{width:4px;border-radius:0 0 0 0;flex-shrink:0;align-self:stretch;border-radius:4px 0 0 4px}
+.bar-green{background:var(--green)}
+.bar-amber{background:var(--amber)}
+.bar-red{background:var(--red)}
+.bar-blue{background:var(--blue)}
+.bar-gray{background:var(--faint)}
+.work-img{width:52px;height:74px;border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--surface2)}
+.work-img-placeholder{width:52px;height:74px;border-radius:6px;flex-shrink:0;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:1.4rem}
+.work-info{flex:1;min-width:0}
+.work-title{font-weight:500;font-size:.9rem;margin-bottom:.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.work-meta{color:var(--muted);font-size:.78rem;margin-bottom:.5rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.score-badge{font-family:'JetBrains Mono',monospace;font-size:.78rem;padding:.15rem .45rem;border-radius:4px;font-weight:500}
+.score-high{background:rgba(74,222,128,.15);color:var(--green)}
+.score-mid{background:rgba(251,191,36,.15);color:var(--amber)}
+.score-low{background:rgba(248,113,113,.15);color:var(--red)}
+.score-none{background:var(--surface2);color:var(--faint)}
+.progress-bar{height:3px;background:var(--border);border-radius:2px;margin-bottom:.5rem}
+.progress-fill{height:100%;border-radius:2px;background:var(--accent)}
+.work-status-tag{font-size:.7rem;padding:.2rem .5rem;border-radius:4px;background:var(--surface2);color:var(--muted)}
+.tag-watching{background:rgba(96,165,250,.12);color:var(--blue)}
+.tag-onhold{background:rgba(251,191,36,.12);color:var(--amber)}
+.tag-manga{background:rgba(192,132,252,.12);color:var(--accent)}
+
+/* ALERT BANNER */
+.alert{padding:.75rem 1.2rem;border-radius:var(--r);border-left:3px solid;margin-bottom:1rem;font-size:.88rem;line-height:1.5}
+.alert-warn{background:rgba(251,191,36,.08);border-color:var(--amber);color:var(--amber)}
+.alert-info{background:rgba(96,165,250,.08);border-color:var(--blue);color:var(--blue)}
+.alert-danger{background:rgba(248,113,113,.08);border-color:var(--red);color:var(--red)}
+.alert-success{background:rgba(74,222,128,.08);border-color:var(--green);color:var(--green)}
+
+/* INSIGHTS */
+.insight-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.5rem;margin-bottom:1rem}
+.insight-header{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem}
+.insight-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.insight-body{color:var(--muted);font-size:.9rem;line-height:1.7}
+.insight-body p{margin-bottom:.6rem}
+.insight-body p:last-child{margin-bottom:0}
+.insight-body strong{color:var(--text)}
+
+/* PROFILE */
+.form-group{margin-bottom:1.5rem}
+.form-label{display:block;font-size:.85rem;color:var(--muted);margin-bottom:.6rem;font-weight:500}
+.form-input{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:.75rem 1rem;border-radius:8px;font-size:.9rem;font-family:'Inter',sans-serif;outline:none;transition:border .2s}
+.form-input:focus{border-color:var(--accent)}
+.form-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394A3B8' fill='none' stroke-width='2'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 1rem center}
+
+.tags-grid{display:flex;flex-wrap:wrap;gap:.5rem}
+.tag-toggle{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:.35rem .8rem;border-radius:20px;font-size:.78rem;cursor:pointer;transition:all .2s;user-select:none}
+.tag-toggle:hover{border-color:var(--faint);color:var(--text)}
+.tag-toggle.liked{background:rgba(74,222,128,.12);border-color:rgba(74,222,128,.4);color:var(--green)}
+.tag-toggle.disliked{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.4);color:var(--red)}
+
+.range-group{display:flex;align-items:center;gap:1rem}
+.range-group input[type=range]{flex:1;accent-color:var(--accent)}
+.range-val{font-family:'JetBrains Mono',monospace;font-size:.9rem;color:var(--accent);min-width:28px;text-align:center}
+
+.question-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.2rem;margin-bottom:1rem}
+.question-card .q{font-size:.9rem;font-weight:500;margin-bottom:.8rem;line-height:1.5}
+.options-grid{display:flex;flex-wrap:wrap;gap:.4rem}
+.opt-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:.4rem .85rem;border-radius:6px;font-size:.78rem;cursor:pointer;transition:all .2s}
+.opt-btn:hover{border-color:var(--faint);color:var(--text)}
+.opt-btn.selected{background:rgba(192,132,252,.15);border-color:var(--accent);color:var(--accent)}
+
+.api-config{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:1.2rem;margin-top:.5rem}
+.ai-selector{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:1rem}
+.ai-opt{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.75rem;text-align:center;cursor:pointer;transition:all .2s}
+.ai-opt:hover{border-color:var(--faint)}
+.ai-opt.selected{border-color:var(--accent);background:rgba(192,132,252,.08)}
+.ai-opt .ai-name{font-size:.85rem;font-weight:500;margin-bottom:.2rem}
+.ai-opt .ai-desc{font-size:.7rem;color:var(--muted)}
+
+/* LOADING */
+.loader{display:flex;align-items:center;justify-content:center;gap:.75rem;padding:3rem;color:var(--muted);font-size:.9rem}
+.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* LIMIT BAR */
+.limit-display{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.5rem;display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem}
+.limit-bar-outer{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.limit-bar-inner{height:100%;border-radius:4px;transition:width .4s,background .4s}
+.limit-label{font-size:.82rem;color:var(--muted);white-space:nowrap;font-family:'JetBrains Mono',monospace}
+
+/* FILTER ROW */
+.filter-row{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.25rem}
+.filter-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:.35rem .9rem;border-radius:6px;font-size:.78rem;cursor:pointer;transition:all .2s}
+.filter-btn.active{background:rgba(192,132,252,.15);border-color:var(--accent);color:var(--accent)}
+
+/* EMPTY */
+.empty{text-align:center;padding:3rem 1rem;color:var(--muted)}
+.empty .e-icon{font-size:2.5rem;margin-bottom:.75rem}
+.empty p{font-size:.9rem;line-height:1.6}
+
+/* NEXT UP */
+.next-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem}
+.next-card .arrow{color:var(--accent);font-size:1.2rem}
+.next-card .next-info{}
+.next-card .next-title{font-size:.88rem;font-weight:500}
+.next-card .next-reason{font-size:.78rem;color:var(--muted);margin-top:.2rem}
+
+/* TOOLTIP-LIKE INFO */
+.hint{font-size:.75rem;color:var(--faint);margin-top:.4rem}
+
+/* Responsive */
+@media(max-width:600px){
+  nav{padding:.75rem 1rem}
+  .page{padding:1.25rem}
+  .hero h1{font-size:2rem}
+  .ai-selector{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Ani<span>Insight</span></div>
+  <div class="tabs">
+    <button class="tab active" onclick="goPage('home')">Início</button>
+    <button class="tab" onclick="goPage('dashboard')" id="tab-dashboard">Dashboard</button>
+    <button class="tab" onclick="goPage('insights')" id="tab-insights">Insights IA</button>
+    <button class="tab" onclick="goPage('profile')">Perfil</button>
+  </div>
+</nav>
+
+<!-- HOME -->
+<div class="page active" id="page-home">
+  <div class="hero">
+    <h1>Seus animes,<br><span>sua IA.</span></h1>
+    <p>Sincronize sua lista do MyAnimeList e receba análises inteligentes sobre o que priorizar, o que dropar e o que assistir a seguir.</p>
+    <div class="search-box">
+      <input type="text" id="mal-username" placeholder="Seu username no MAL..." autocomplete="off">
+      <button class="btn" onclick="loadMAL()">Carregar lista</button>
+    </div>
+    <p class="hint" style="margin-top:1rem">Dados buscados via Jikan API (público, sem login necessário)</p>
+  </div>
+
+  <div style="max-width:700px;margin:0 auto">
+    <div class="grid g3">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.5rem;text-align:center">
+        <div style="font-size:1.8rem;margin-bottom:.5rem">🎯</div>
+        <div style="font-weight:500;margin-bottom:.4rem">Prioridades</div>
+        <div style="font-size:.82rem;color:var(--muted)">Saiba o que assistir/ler primeiro baseado no seu perfil</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.5rem;text-align:center">
+        <div style="font-size:1.8rem;margin-bottom:.5rem">🧠</div>
+        <div style="font-weight:500;margin-bottom:.4rem">Insights de IA</div>
+        <div style="font-size:.82rem;color:var(--muted)">Análise profunda baseada nos seus gostos e hábitos</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.5rem;text-align:center">
+        <div style="font-size:1.8rem;margin-bottom:.5rem">⏰</div>
+        <div style="font-weight:500;margin-bottom:.4rem">Alertas On Hold</div>
+        <div style="font-size:.82rem;color:var(--muted)">Obras paradas há muito tempo que merecem atenção</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="page" id="page-dashboard">
+  <div style="max-width:1000px;margin:0 auto">
+
+    <!-- limit bar -->
+    <div id="limit-section"></div>
+
+    <!-- alerts -->
+    <div id="alerts-section"></div>
+
+    <!-- filter -->
+    <div class="filter-row" id="filter-row">
+      <button class="filter-btn active" onclick="setFilter('all',this)">Tudo</button>
+      <button class="filter-btn" onclick="setFilter('watching',this)">Assistindo</button>
+      <button class="filter-btn" onclick="setFilter('reading',this)">Lendo</button>
+      <button class="filter-btn" onclick="setFilter('onhold',this)">On Hold</button>
+    </div>
+
+    <div id="dashboard-content">
+      <div class="empty"><div class="e-icon">📡</div><p>Carregue sua lista na tela de início primeiro.</p></div>
+    </div>
+
+    <!-- next up -->
+    <div id="next-up-section" style="margin-top:2rem"></div>
+  </div>
+</div>
+
+<!-- INSIGHTS IA -->
+<div class="page" id="page-insights">
+  <div style="max-width:800px;margin:0 auto">
+    <div id="insights-content">
+      <div class="empty"><div class="e-icon">🤖</div><p>Carregue sua lista e configure sua API key no Perfil<br>para gerar os insights.</p></div>
+    </div>
+    <div id="gen-btn-area" style="text-align:center;margin-top:1.5rem"></div>
+  </div>
+</div>
+
+<!-- PROFILE -->
+<div class="page" id="page-profile">
+  <div style="max-width:720px;margin:0 auto">
+
+    <div class="section-block">
+      <div class="section-title">Configuração de IA</div>
+      <div class="ai-selector" id="ai-selector">
+        <div class="ai-opt selected" data-ai="claude" onclick="selectAI('claude',this)">
+          <div class="ai-name">Claude</div>
+          <div class="ai-desc">Anthropic · análise narrativa</div>
+        </div>
+        <div class="ai-opt" data-ai="openai" onclick="selectAI('openai',this)">
+          <div class="ai-name">GPT-4o</div>
+          <div class="ai-desc">OpenAI · amplo conhecimento</div>
+        </div>
+        <div class="ai-opt" data-ai="gemini" onclick="selectAI('gemini',this)">
+          <div class="ai-name">Gemini</div>
+          <div class="ai-desc">Google · gratuito até limite</div>
+        </div>
+      </div>
+      <div class="api-config">
+        <div class="form-group" style="margin-bottom:.75rem">
+          <label class="form-label" id="api-key-label">API Key (Claude)</label>
+          <input type="password" class="form-input" id="api-key-input" placeholder="sk-ant-...">
+          <p class="hint">Sua key é salva localmente e nunca sai do navegador.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-block">
+      <div class="section-title">Limite de obras simultâneas</div>
+      <div class="form-group">
+        <label class="form-label">Máximo de animes acompanhando ao mesmo tempo</label>
+        <div class="range-group">
+          <input type="range" min="1" max="30" value="5" id="anime-limit" oninput="updateRange('anime-limit','anime-limit-val')">
+          <span class="range-val" id="anime-limit-val">5</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Máximo de mangás acompanhando ao mesmo tempo</label>
+        <div class="range-group">
+          <input type="range" min="1" max="30" value="5" id="manga-limit" oninput="updateRange('manga-limit','manga-limit-val')">
+          <span class="range-val" id="manga-limit-val">5</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-block">
+      <div class="section-title">Gêneros</div>
+      <label class="form-label">Clique uma vez para 💚 curtir, duas para 🔴 não curtir, três para resetar</label>
+      <div class="tags-grid" id="genres-grid"></div>
+    </div>
+
+    <div class="section-block">
+      <div class="section-title">Demografias</div>
+      <div class="tags-grid" id="demog-grid"></div>
+    </div>
+
+    <div class="section-block">
+      <div class="section-title">Temas</div>
+      <div class="tags-grid" id="themes-grid"></div>
+    </div>
+
+    <div class="section-block">
+      <div class="section-title">Perfil narrativo</div>
+      <div id="questions-area"></div>
+    </div>
+
+    <div style="text-align:center;padding-bottom:2rem">
+      <button class="btn" onclick="saveProfile()">Salvar perfil</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const GENRES = ['Ação','Aventura','Comédia','Drama','Fantasia','Horror','Mistério','Romance','Sci-Fi','Slice of Life','Sobrenatural','Suspense','Psicológico','Ecchi','Hentai'];
+const DEMOGRAPHICS = ['Shounen','Seinen','Shoujo','Josei','Kids'];
+const THEMES = ['School','Military','Historical','Music','Sports','Mecha','Harem','Reverse Harem','Isekai','Vilã Reencarnada','Survival','Game','Vampires','Magic','Martial Arts','Reincarnation','Time Travel','Revenge','Demons','Angels','Mythology'];
+
+const QUESTIONS = [
+  {id:'priority',q:'O que você prioriza mais em uma história?',opts:['Desenvolvimento de personagens','World-building e lore','Plot twists e reviravoltas','Ação e batalhas','Romance e relações','Temas filosóficos']},
+  {id:'villain',q:'O que mais te irrita em um vilão?',opts:['Motivação sem sentido','Muito poderoso sem razão','Subestima o protagonista sem motivo','Arrependimento forçado no final','Falta de presença nas cenas']},
+  {id:'hero',q:'O que faz você gostar de um personagem mesmo querendo odiá-lo?',opts:['Ele tem um ponto válido','Carisma absurdo','Trágico passado explicável','Evolução real ao longo da obra','Humor involuntário']},
+  {id:'endings',q:'Que tipo de final te satisfaz mais?',opts:['Fechado e completo','Aberto para interpretação','Bittersweet (triste mas significativo)','Épico e grandioso','Simples e humano']},
+  {id:'fillers',q:'Como você lida com fillers e arcos fracos?',opts:['Pulo sem hesitar','Assisto/leio tudo mesmo aborrecido','Faço pausa até acabar','Depende da obra']},
+  {id:'pace',q:'Qual ritmo de narrativa prefere?',opts:['Rápido, sempre acontece algo','Equilibrado entre ação e calma','Lento e contemplativo','Varia por capítulo/episódio']},
+  {id:'simultaneous',q:'Como você costuma acompanhar obras?',opts:['Uma de cada vez, foco total','Poucas (2-4) ao mesmo tempo','Várias ao mesmo tempo sem problema','Depende do humor do dia']},
+  {id:'status',q:'Prefere obras em que status?',opts:['Completas (posso maratonar)','Em andamento (acompanho semanalmente)','Qualquer uma me serve']},
+  {id:'length',q:'Prefere obras de qual tamanho?',opts:['Curtas (< 26 eps / < 50 caps)','Médias (26-100 eps / 50-200 caps)','Longas (> 100 eps / > 200 caps)','Indiferente']},
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  username:'',
+  animeList:[],
+  mangaList:[],
+  profile: loadProfile(),
+  currentFilter:'all',
+  insightsGenerated:false,
+};
+
+function loadProfile(){
+  try{ return JSON.parse(localStorage.getItem('aniinsight_profile'))||defaultProfile(); }
+  catch(e){ return defaultProfile(); }
+}
+function defaultProfile(){
+  return {aiProvider:'claude',apiKey:'',animeLimit:5,mangaLimit:5,genres:{},demographics:{},themes:{},answers:{}};
+}
+function saveProfile(){
+  collectProfileFromUI();
+  localStorage.setItem('aniinsight_profile',JSON.stringify(state.profile));
+  showToast('Perfil salvo!');
+  renderDashboard();
+}
+function collectProfileFromUI(){
+  state.profile.apiKey = document.getElementById('api-key-input').value.trim();
+  state.profile.animeLimit = parseInt(document.getElementById('anime-limit').value);
+  state.profile.mangaLimit = parseInt(document.getElementById('manga-limit').value);
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function goPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  const tab = document.querySelector(`[onclick="goPage('${id}')"]`);
+  if(tab) tab.classList.add('active');
+  if(id==='dashboard') renderDashboard();
+  if(id==='insights') renderInsightsPage();
+}
+
+// ============================================================
+// MAL LOADING
+// ============================================================
+async function loadMAL(){
+  const username = document.getElementById('mal-username').value.trim();
+  if(!username){showToast('Digite um username','warn');return;}
+  state.username = username;
+  showToast('Carregando lista...');
+  try{
+    const [animes, mangas] = await Promise.all([
+      fetchList('anime', username),
+      fetchList('manga', username),
+    ]);
+    state.animeList = animes;
+    state.mangaList = mangas;
+    goPage('dashboard');
+    showToast(`${animes.length} animes e ${mangas.length} mangás carregados!`,'success');
+  } catch(e){
+    showToast('Erro ao carregar: '+e.message,'error');
+  }
+}
+
+async function fetchList(type, username){
+  let all=[], page=1, hasNext=true;
+  while(hasNext && page<=5){
+    const url=`https://api.jikan.moe/v4/users/${username}/${type}list?page=${page}&limit=300`;
+    const r = await fetch(url);
+    if(!r.ok) throw new Error(`Usuário não encontrado ou lista privada (${r.status})`);
+    const data = await r.json();
+    if(!data.data||!data.data.length){hasNext=false;break;}
+    all=[...all,...data.data];
+    hasNext = data.pagination?.has_next_page||false;
+    page++;
+    if(hasNext) await sleep(600);
+  }
+  return all;
+}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function setFilter(f,el){
+  state.currentFilter=f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  renderDashboard();
+}
+
+function renderDashboard(){
+  if(!state.animeList.length && !state.mangaList.length) return;
+  const p = state.profile;
+
+  const watching = state.animeList.filter(a=>a.watching_status===1);
+  const holdAnime = state.animeList.filter(a=>a.watching_status===3);
+  const reading   = state.mangaList.filter(m=>m.reading_status===1);
+  const holdManga = state.mangaList.filter(m=>m.reading_status===3);
+
+  const totalActive = watching.length+reading.length;
+  const totalLimit  = p.animeLimit+p.mangaLimit;
+
+  // Limit bar
+  const pct = Math.min(100,Math.round((totalActive/totalLimit)*100));
+  const barColor = pct>=100?'var(--red)':pct>=80?'var(--amber)':'var(--green)';
+  document.getElementById('limit-section').innerHTML=`
+    <div class="limit-display">
+      <span style="font-size:.82rem;color:var(--muted)">Obras ativas</span>
+      <div class="limit-bar-outer"><div class="limit-bar-inner" style="width:${pct}%;background:${barColor}"></div></div>
+      <span class="limit-label">${totalActive} / ${totalLimit}</span>
+    </div>`;
+
+  // Alerts
+  let alertsHTML='';
+  if(totalActive>=totalLimit) alertsHTML+=`<div class="alert alert-danger">⚠️ Você atingiu o limite de obras simultâneas (${totalLimit}). Considere finalizar ou dropar algo antes de começar algo novo.</div>`;
+  else if(totalActive>=totalLimit*0.8) alertsHTML+=`<div class="alert alert-warn">📊 Você está chegando ao seu limite (${totalActive}/${totalLimit}). Seja criterioso antes de adicionar mais obras.</div>`;
+
+  const oldHolds = [...holdAnime,...holdManga].filter(item=>{
+    const d = item.updated_at||item.anime?.updated_at||'';
+    if(!d) return false;
+    const days = (Date.now()-new Date(d).getTime())/(1000*86400);
+    return days>90;
+  });
+  if(oldHolds.length) alertsHTML+=`<div class="alert alert-warn">⏸️ Você tem ${oldHolds.length} obra(s) em On Hold há mais de 90 dias. Hora de retomar ou decidir dropar!</div>`;
+
+  document.getElementById('alerts-section').innerHTML=alertsHTML;
+
+  // Main content
+  const f = state.currentFilter;
+  const cont = document.getElementById('dashboard-content');
+
+  let html='';
+
+  if(f==='all'||f==='watching'){
+    html+=renderSection('📺 Assistindo agora', watching, 'anime');
+  }
+  if(f==='all'||f==='reading'){
+    html+=renderSection('📖 Lendo agora', reading, 'manga');
+  }
+  if(f==='all'||f==='onhold'){
+    const holds=[...holdAnime.map(a=>({...a,_type:'anime'})),...holdManga.map(m=>({...m,_type:'manga'}))];
+    html+=renderSection('⏸️ On Hold', holds, 'hold');
+  }
+
+  cont.innerHTML=html||'<div class="empty"><div class="e-icon">✅</div><p>Nenhum item nesta categoria.</p></div>';
+
+  // Next up
+  renderNextUp(watching, reading);
+}
+
+function renderSection(title, items, type){
+  if(!items.length) return `<div class="section-block"><div class="section-title">${title}</div><div class="empty" style="padding:1.5rem 0"><p style="font-size:.85rem">Nenhuma obra aqui.</p></div></div>`;
+  const cards = items.map(item=>renderWorkCard(item,type)).join('');
+  return `<div class="section-block"><div class="section-title">${title}</div><div class="grid g2">${cards}</div></div>`;
+}
+
+function renderWorkCard(item, type){
+  const isAnime = type==='anime' || item._type==='anime';
+  const isManga = type==='manga' || item._type==='manga';
+  const isHold  = type==='hold';
+
+  const entry = isAnime?(item.anime||item):(item.manga||item);
+  const title = entry.title||'Sem título';
+  const img   = entry.images?.jpg?.image_url||'';
+  const score = item.score||0;
+  const total = isAnime?(entry.episodes||0):(entry.chapters||0);
+  const done  = isAnime?(item.watched_episodes||0):(item.chapters_read||0);
+  const pct   = total>0?Math.round((done/total)*100):0;
+
+  const scoreCls = score>=8?'score-high':score>=6?'score-mid':score>0?'score-low':'score-none';
+  const scoreLabel = score>0?score.toFixed(1):'—';
+
+  // Determine priority bar color
+  let barCls='bar-gray';
+  if(isHold){
+    const d = item.updated_at||'';
+    const days = d?(Date.now()-new Date(d).getTime())/(1000*86400):0;
+    barCls = days>180?'bar-red':days>90?'bar-amber':'bar-blue';
+  } else {
+    barCls = score>=8?'bar-green':score>=6?'bar-amber':score>0?'bar-red':'bar-gray';
+  }
+
+  const statusTag = isHold?`<span class="work-status-tag tag-onhold">On Hold</span>`:
+                    isAnime?`<span class="work-status-tag tag-watching">Assistindo</span>`:
+                    `<span class="work-status-tag tag-manga">Lendo</span>`;
+
+  const holdWarning = isHold&&item.updated_at?`<div style="font-size:.72rem;color:var(--amber);margin-top:.3rem">Parado há ~${Math.round((Date.now()-new Date(item.updated_at).getTime())/(1000*86400))} dias</div>`:'';
+
+  const progressSection = total>0?`
+    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    <span style="font-size:.72rem;color:var(--muted)">${done}/${total} (${pct}%)</span>
+  `:'';
+
+  const imgEl = img?`<img class="work-img" src="${img}" alt="${title}" onerror="this.style.display='none'">`:
+                    `<div class="work-img-placeholder">📺</div>`;
+
+  return `<div class="work-card">
+    <div class="priority-bar ${barCls}"></div>
+    ${imgEl}
+    <div class="work-info">
+      <div class="work-title" title="${title}">${title}</div>
+      <div class="work-meta">
+        <span class="score-badge ${scoreCls}">${scoreLabel}</span>
+        ${statusTag}
+      </div>
+      ${progressSection}
+      ${holdWarning}
+    </div>
+  </div>`;
+}
+
+const SEQUEL_MAP = [
+  {prev:['Naruto'],next:'Naruto: Shippuuden',reason:'Continuação direta'},
+  {prev:['Dragon Ball'],next:'Dragon Ball Z',reason:'Continuação direta'},
+  {prev:['Tokyo Ghoul'],next:'Parasyte -the maxim-',reason:'Ambos exploram horror e identidade'},
+  {prev:['Fullmetal Alchemist'],next:'Fullmetal Alchemist: Brotherhood',reason:'Versão completa da história'},
+  {prev:['Attack on Titan'],next:'Attack on Titan Season 2',reason:'Continuação da temporada'},
+  {prev:['Death Note'],next:'Code Geass: Lelouch of the Rebellion',reason:'Estratégia e protagonista moralmente ambíguo'},
+  {prev:['Demon Slayer'],next:'Demon Slayer: Mugen Train Arc',reason:'Continuação direta'},
+];
+
+function renderNextUp(watching, reading){
+  const allTitles = [...watching,...reading].map(i=>(i.anime||i.manga||i).title||'');
+  const suggestions=[];
+  for(const map of SEQUEL_MAP){
+    const match = map.prev.some(p=>allTitles.some(t=>t.toLowerCase().includes(p.toLowerCase())));
+    if(match && !allTitles.some(t=>t.toLowerCase().includes(map.next.toLowerCase().slice(0,8)))){
+      suggestions.push(map);
+    }
+  }
+  const el = document.getElementById('next-up-section');
+  if(!suggestions.length){el.innerHTML='';return;}
+  const items = suggestions.slice(0,3).map(s=>`
+    <div class="next-card">
+      <div style="font-size:1.3rem">➡️</div>
+      <div class="next-info">
+        <div class="next-title">Depois: <strong>${s.next}</strong></div>
+        <div class="next-reason">${s.reason}</div>
+      </div>
+    </div>`).join('');
+  el.innerHTML=`<div class="section-block"><div class="section-title">📌 Próximas obras sugeridas</div>${items}</div>`;
+}
+
+// ============================================================
+// INSIGHTS PAGE
+// ============================================================
+function renderInsightsPage(){
+  const el = document.getElementById('gen-btn-area');
+  const hasData = state.animeList.length||state.mangaList.length;
+  const hasKey  = state.profile.apiKey;
+  if(!hasData){
+    el.innerHTML='';
+    document.getElementById('insights-content').innerHTML='<div class="empty"><div class="e-icon">📡</div><p>Carregue sua lista primeiro na tela de início.</p></div>';
+    return;
+  }
+  el.innerHTML=`<button class="btn" onclick="generateInsights()">🧠 Gerar Insights com IA</button>${!hasKey?'<p class="hint" style="margin-top:.5rem">Configure sua API key no Perfil para usar.</p>':''}`;
+  if(!state.insightsGenerated) document.getElementById('insights-content').innerHTML='<div class="empty"><div class="e-icon">🤖</div><p>Clique em "Gerar Insights" para começar a análise.</p></div>';
+}
+
+async function generateInsights(){
+  const p = state.profile;
+  if(!p.apiKey){showToast('Configure sua API key no Perfil','warn');return;}
+
+  document.getElementById('insights-content').innerHTML='<div class="loader"><div class="spinner"></div>Analisando sua lista com IA...</div>';
+  document.getElementById('gen-btn-area').innerHTML='';
+
+  const prompt = buildPrompt();
+  try{
+    let response;
+    if(p.aiProvider==='claude'){
+      response = await callClaude(prompt, p.apiKey);
+    } else if(p.aiProvider==='openai'){
+      response = await callOpenAI(prompt, p.apiKey);
+    } else {
+      response = await callGemini(prompt, p.apiKey);
+    }
+    renderInsightsResult(response);
+    state.insightsGenerated=true;
+  } catch(e){
+    document.getElementById('insights-content').innerHTML=`<div class="alert alert-danger">Erro ao chamar a IA: ${e.message}</div>`;
+  }
+  document.getElementById('gen-btn-area').innerHTML=`<button class="btn btn-outline btn-sm" onclick="generateInsights()">🔄 Regenerar</button>`;
+}
+
+function buildPrompt(){
+  const p = state.profile;
+  const watching = state.animeList.filter(a=>a.watching_status===1).map(a=>({
+    title:a.anime?.title,score:a.score,eps_done:a.watched_episodes,eps_total:a.anime?.episodes,type:'anime'
+  }));
+  const reading = state.mangaList.filter(m=>m.reading_status===1).map(m=>({
+    title:m.manga?.title,score:m.score,chaps_done:m.chapters_read,chaps_total:m.manga?.chapters,type:'manga'
+  }));
+  const holdAnime = state.animeList.filter(a=>a.watching_status===3).map(a=>({title:a.anime?.title,score:a.score,paused_at:a.updated_at}));
+  const holdManga = state.mangaList.filter(m=>m.reading_status===3).map(m=>({title:m.manga?.title,score:m.score,paused_at:m.updated_at}));
+
+  const likedGenres  = Object.entries(p.genres||{}).filter(([,v])=>v==='like').map(([k])=>k);
+  const dislikedGenres = Object.entries(p.genres||{}).filter(([,v])=>v==='dislike').map(([k])=>k);
+  const likedThemes  = Object.entries(p.themes||{}).filter(([,v])=>v==='like').map(([k])=>k);
+  const dislikedThemes = Object.entries(p.themes||{}).filter(([,v])=>v==='dislike').map(([k])=>k);
+  const likedDemog   = Object.entries(p.demographics||{}).filter(([,v])=>v==='like').map(([k])=>k);
+
+  const answers = Object.entries(p.answers||{}).map(([id,val])=>{
+    const q = QUESTIONS.find(q=>q.id===id);
+    return q?`${q.q} → ${val}`:'';
+  }).filter(Boolean).join('\n');
+
+  return `Você é um especialista em anime e mangá. Analise o perfil e a lista de ${state.username} e forneça insights DETALHADOS e PERSONALIZADOS em português.
+
+=== LISTA ATUAL ===
+ASSISTINDO (${watching.length} animes):
+${JSON.stringify(watching,null,2)}
+
+LENDO (${reading.length} mangás):
+${JSON.stringify(reading,null,2)}
+
+ON HOLD - Animes (${holdAnime.length}):
+${JSON.stringify(holdAnime,null,2)}
+
+ON HOLD - Mangás (${holdManga.length}):
+${JSON.stringify(holdManga,null,2)}
+
+=== PERFIL DE GOSTOS ===
+Gêneros curtidos: ${likedGenres.join(', ')||'não definido'}
+Gêneros não curtidos: ${dislikedGenres.join(', ')||'não definido'}
+Temas curtidos: ${likedThemes.join(', ')||'não definido'}
+Temas não curtidos: ${dislikedThemes.join(', ')||'não definido'}
+Demografias preferidas: ${likedDemog.join(', ')||'não definido'}
+
+Limite de animes simultâneos: ${p.animeLimit}
+Limite de mangás simultâneos: ${p.mangaLimit}
+Animes ativos: ${watching.length}
+Mangás ativos: ${reading.length}
+
+=== RESPOSTAS DO QUESTIONÁRIO ===
+${answers||'Não respondido'}
+
+=== O QUE ANALISAR ===
+1. PRIORIDADES: Quais obras da lista atual deve focar AGORA e por quê (baseado no perfil)
+2. DROP CANDIDATES: Quais obras considera dropar e por quê (nota baixa, conflito com gostos, etc)
+3. ON HOLD: Para cada obra on hold, avalie se deve retomar ou dropar definitivamente
+4. PRÓXIMAS OBRAS: 3-5 sugestões do que iniciar quando finalizar algo (baseado no histórico e perfil) — pode mencionar obras que não estão na lista
+5. INSIGHT GERAL: Uma análise do padrão de consumo do usuário — o que revela sobre seus gostos e como pode melhorar a experiência
+
+Formate a resposta como JSON com esta estrutura:
+{
+  "priorities": [{"title": "...", "reason": "...", "urgency": "high|medium|low"}],
+  "drop_candidates": [{"title": "...", "reason": "...", "confidence": "high|medium|low"}],
+  "onhold_analysis": [{"title": "...", "recommendation": "retomar|dropar|aguardar", "reason": "..."}],
+  "next_works": [{"title": "...", "reason": "...", "type": "anime|manga"}],
+  "general_insight": "texto livre aqui"
+}`;
+}
+
+async function callClaude(prompt, apiKey){
+  const r = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01'},
+    body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:2000,messages:[{role:'user',content:prompt}]})
+  });
+  if(!r.ok){const e=await r.json();throw new Error(e.error?.message||r.statusText);}
+  const d = await r.json();
+  return d.content[0].text;
+}
+
+async function callOpenAI(prompt, apiKey){
+  const r = await fetch('https://api.openai.com/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+    body:JSON.stringify({model:'gpt-4o',messages:[{role:'user',content:prompt}],max_tokens:2000})
+  });
+  if(!r.ok){const e=await r.json();throw new Error(e.error?.message||r.statusText);}
+  const d = await r.json();
+  return d.choices[0].message.content;
+}
+
+async function callGemini(prompt, apiKey){
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
+  });
+  if(!r.ok){const e=await r.json();throw new Error(e.error?.message||r.statusText);}
+  const d = await r.json();
+  return d.candidates[0].content.parts[0].text;
+}
+
+function renderInsightsResult(raw){
+  let data;
+  try{
+    const clean = raw.replace(/```json|```/g,'').trim();
+    data = JSON.parse(clean);
+  } catch(e){
+    document.getElementById('insights-content').innerHTML=`<div class="insight-card"><div class="insight-body"><p>${raw.replace(/\n/g,'<br>')}</p></div></div>`;
+    return;
+  }
+
+  const urgencyColor = {high:'var(--red)',medium:'var(--amber)',low:'var(--green)'};
+  const urgencyLabel = {high:'Alta prioridade',medium:'Média prioridade',low:'Baixa prioridade'};
+  const recColor = {retomar:'var(--green)',dropar:'var(--red)',aguardar:'var(--amber)'};
+
+  let html='';
+
+  // General insight
+  if(data.general_insight){
+    html+=`<div class="insight-card">
+      <div class="insight-header">
+        <div class="insight-icon" style="background:rgba(192,132,252,.15);font-size:1.2rem">🧠</div>
+        <div><div style="font-weight:600;font-size:.95rem">Análise Geral do seu Perfil</div></div>
+      </div>
+      <div class="insight-body"><p>${data.general_insight}</p></div>
+    </div>`;
+  }
+
+  // Priorities
+  if(data.priorities?.length){
+    html+=`<div class="section-title" style="margin:1.5rem 0 1rem">🎯 Priorize agora</div>`;
+    data.priorities.forEach(i=>{
+      html+=`<div class="insight-card" style="border-left:3px solid ${urgencyColor[i.urgency]||'var(--accent)'}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+          <strong>${i.title}</strong>
+          <span style="font-size:.72rem;padding:.2rem .6rem;border-radius:4px;background:rgba(255,255,255,.05);color:${urgencyColor[i.urgency]||'var(--accent)'}">${urgencyLabel[i.urgency]||''}</span>
+        </div>
+        <div class="insight-body"><p>${i.reason}</p></div>
+      </div>`;
+    });
+  }
+
+  // Drop candidates
+  if(data.drop_candidates?.length){
+    html+=`<div class="section-title" style="margin:1.5rem 0 1rem">🗑️ Considere dropar</div>`;
+    data.drop_candidates.forEach(i=>{
+      html+=`<div class="insight-card" style="border-left:3px solid var(--red)">
+        <div style="margin-bottom:.6rem"><strong>${i.title}</strong></div>
+        <div class="insight-body"><p>${i.reason}</p></div>
+      </div>`;
+    });
+  }
+
+  // On hold
+  if(data.onhold_analysis?.length){
+    html+=`<div class="section-title" style="margin:1.5rem 0 1rem">⏸️ On Hold — veredicto</div>`;
+    data.onhold_analysis.forEach(i=>{
+      const col = recColor[i.recommendation]||'var(--muted)';
+      const label = i.recommendation==='retomar'?'↩️ Retomar':i.recommendation==='dropar'?'🗑️ Dropar':'⏳ Aguardar';
+      html+=`<div class="insight-card" style="border-left:3px solid ${col}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+          <strong>${i.title}</strong>
+          <span style="font-size:.78rem;color:${col}">${label}</span>
+        </div>
+        <div class="insight-body"><p>${i.reason}</p></div>
+      </div>`;
+    });
+  }
+
+  // Next works
+  if(data.next_works?.length){
+    html+=`<div class="section-title" style="margin:1.5rem 0 1rem">🚀 Próximas obras para você</div>`;
+    data.next_works.forEach(i=>{
+      const icon = i.type==='manga'?'📖':'📺';
+      html+=`<div class="insight-card">
+        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem">
+          <span style="font-size:1.1rem">${icon}</span>
+          <strong>${i.title}</strong>
+        </div>
+        <div class="insight-body"><p>${i.reason}</p></div>
+      </div>`;
+    });
+  }
+
+  document.getElementById('insights-content').innerHTML=html||'<div class="empty"><p>Nenhum dado retornado pela IA.</p></div>';
+}
+
+// ============================================================
+// PROFILE UI
+// ============================================================
+function selectAI(ai,el){
+  state.profile.aiProvider=ai;
+  document.querySelectorAll('.ai-opt').forEach(e=>e.classList.remove('selected'));
+  el.classList.add('selected');
+  const labels={claude:'API Key (Claude)',openai:'API Key (OpenAI)',gemini:'API Key (Gemini)'};
+  document.getElementById('api-key-label').textContent=labels[ai];
+}
+
+function updateRange(inputId, valId){
+  const val = document.getElementById(inputId).value;
+  document.getElementById(valId).textContent=val;
+  if(inputId==='anime-limit') state.profile.animeLimit=parseInt(val);
+  if(inputId==='manga-limit') state.profile.mangaLimit=parseInt(val);
+}
+
+function buildTagsGrid(id, items, storeKey){
+  const el=document.getElementById(id);
+  const store=state.profile[storeKey]||{};
+  el.innerHTML=items.map(tag=>{
+    const v=store[tag]||'none';
+    const cls=v==='like'?'liked':v==='dislike'?'disliked':'';
+    const prefix=v==='like'?'💚 ':v==='dislike'?'🔴 ':'';
+    return `<span class="tag-toggle ${cls}" data-key="${storeKey}" data-tag="${tag}" onclick="cycleTag(this,'${storeKey}','${tag}')">${prefix}${tag}</span>`;
+  }).join('');
+}
+
+function cycleTag(el, storeKey, tag){
+  const store=state.profile[storeKey]||(state.profile[storeKey]={});
+  const cur=store[tag]||'none';
+  const next={none:'like',like:'dislike',dislike:'none'}[cur];
+  store[tag]=next;
+  el.className='tag-toggle'+(next==='like'?' liked':next==='dislike'?' disliked':'');
+  const prefix=next==='like'?'💚 ':next==='dislike'?'🔴 ':'';
+  el.textContent=prefix+tag;
+}
+
+function buildQuestions(){
+  const el=document.getElementById('questions-area');
+  el.innerHTML=QUESTIONS.map(q=>`
+    <div class="question-card">
+      <div class="q">${q.q}</div>
+      <div class="options-grid" id="q-${q.id}">
+        ${q.opts.map(o=>`<button class="opt-btn${state.profile.answers[q.id]===o?' selected':''}" onclick="selectAnswer('${q.id}','${o}',this)">${o}</button>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function selectAnswer(qid, val, el){
+  state.profile.answers[qid]=val;
+  document.querySelectorAll(`#q-${qid} .opt-btn`).forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg, type='info'){
+  const t=document.createElement('div');
+  const colors={info:'var(--blue)',warn:'var(--amber)',error:'var(--red)',success:'var(--green)'};
+  t.style.cssText=`position:fixed;bottom:1.5rem;right:1.5rem;background:var(--surface);border:1px solid ${colors[type]||colors.info};color:var(--text);padding:.75rem 1.25rem;border-radius:8px;font-size:.85rem;z-index:9999;animation:fadein .2s ease`;
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),3000);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+(function init(){
+  // restore profile UI
+  const p=state.profile;
+  document.getElementById('api-key-input').value=p.apiKey||'';
+  document.getElementById('anime-limit').value=p.animeLimit||5;
+  document.getElementById('anime-limit-val').textContent=p.animeLimit||5;
+  document.getElementById('manga-limit').value=p.mangaLimit||5;
+  document.getElementById('manga-limit-val').textContent=p.mangaLimit||5;
+
+  // select AI
+  if(p.aiProvider){
+    document.querySelectorAll('.ai-opt').forEach(e=>{
+      e.classList.toggle('selected',e.dataset.ai===p.aiProvider);
+    });
+    const labels={claude:'API Key (Claude)',openai:'API Key (OpenAI)',gemini:'API Key (Gemini)'};
+    document.getElementById('api-key-label').textContent=labels[p.aiProvider]||'API Key';
+  }
+
+  buildTagsGrid('genres-grid',GENRES,'genres');
+  buildTagsGrid('demog-grid',DEMOGRAPHICS,'demographics');
+  buildTagsGrid('themes-grid',THEMES,'themes');
+  buildQuestions();
+})();
+</script>
+</body>
+</html>
