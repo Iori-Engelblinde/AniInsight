@@ -428,16 +428,17 @@ async function loadMAL(){
 
 async function fetchList(type, username){
   let all=[], page=1, hasNext=true;
-  while(hasNext && page<=5){
-    const url=`https://api.jikan.moe/v4/users/${username}/${type}list?page=${page}&limit=300`;
+  while(hasNext && page<=10){
+    const url=`https://api.jikan.moe/v4/users/${username}/${type}?page=${page}`;
     const r = await fetch(url);
-    if(!r.ok) throw new Error(`Usuário não encontrado ou lista privada (${r.status})`);
+    if(r.status===429){ await sleep(2000); continue; }
+    if(!r.ok) throw new Error(`Erro ao buscar lista de ${type} (${r.status}). Verifique se o username está correto e a lista está pública.`);
     const data = await r.json();
     if(!data.data||!data.data.length){hasNext=false;break;}
     all=[...all,...data.data];
     hasNext = data.pagination?.has_next_page||false;
     page++;
-    if(hasNext) await sleep(600);
+    if(hasNext) await sleep(1000);
   }
   return all;
 }
@@ -457,10 +458,12 @@ function renderDashboard(){
   if(!state.animeList.length && !state.mangaList.length) return;
   const p = state.profile;
 
-  const watching = state.animeList.filter(a=>a.watching_status===1);
-  const holdAnime = state.animeList.filter(a=>a.watching_status===3);
-  const reading   = state.mangaList.filter(m=>m.reading_status===1);
-  const holdManga = state.mangaList.filter(m=>m.reading_status===3);
+  const animeStatus = a => a.watching_status || a.list_status?.status || '';
+  const mangaStatus = m => m.reading_status  || m.list_status?.status || '';
+  const watching  = state.animeList.filter(a=>animeStatus(a)===1||animeStatus(a)==='watching');
+  const holdAnime = state.animeList.filter(a=>animeStatus(a)===3||animeStatus(a)==='on_hold');
+  const reading   = state.mangaList.filter(m=>mangaStatus(m)===1||mangaStatus(m)==='reading');
+  const holdManga = state.mangaList.filter(m=>mangaStatus(m)===3||mangaStatus(m)==='on_hold');
 
   const totalActive = watching.length+reading.length;
   const totalLimit  = p.animeLimit+p.mangaLimit;
@@ -524,12 +527,13 @@ function renderWorkCard(item, type){
   const isManga = type==='manga' || item._type==='manga';
   const isHold  = type==='hold';
 
-  const entry = isAnime?(item.anime||item):(item.manga||item);
-  const title = entry.title||'Sem título';
-  const img   = entry.images?.jpg?.image_url||'';
-  const score = item.score||0;
-  const total = isAnime?(entry.episodes||0):(entry.chapters||0);
-  const done  = isAnime?(item.watched_episodes||0):(item.chapters_read||0);
+  // Jikan v4 /users/{u}/anime returns item.node or item.anime; handle both
+  const entry = item.node || (isAnime?(item.anime||item):(item.manga||item));
+  const title = entry.title||item.title||'Sem título';
+  const img   = entry.images?.jpg?.image_url||entry.main_picture?.medium||'';
+  const score = item.score||item.list_status?.score||0;
+  const total = isAnime?(entry.episodes||entry.num_episodes||0):(entry.chapters||entry.num_chapters||0);
+  const done  = isAnime?(item.watched_episodes||item.list_status?.num_episodes_watched||0):(item.chapters_read||item.list_status?.num_chapters_read||0);
   const pct   = total>0?Math.round((done/total)*100):0;
 
   const scoreCls = score>=8?'score-high':score>=6?'score-mid':score>0?'score-low':'score-none';
@@ -649,14 +653,22 @@ async function generateInsights(){
 
 function buildPrompt(){
   const p = state.profile;
-  const watching = state.animeList.filter(a=>a.watching_status===1).map(a=>({
-    title:a.anime?.title,score:a.score,eps_done:a.watched_episodes,eps_total:a.anime?.episodes,type:'anime'
+  const aStatus = a=>a.watching_status||a.list_status?.status||'';
+  const mStatus = m=>m.reading_status||m.list_status?.status||'';
+  const aTitle  = a=>(a.node||a.anime||a).title||'';
+  const mTitle  = m=>(m.node||m.manga||m).title||'';
+  const watching = state.animeList.filter(a=>aStatus(a)===1||aStatus(a)==='watching').map(a=>({
+    title:aTitle(a),score:a.score||a.list_status?.score||0,
+    eps_done:a.watched_episodes||a.list_status?.num_episodes_watched||0,
+    eps_total:(a.node||a.anime||a).episodes||(a.node||a.anime||a).num_episodes||0,type:'anime'
   }));
-  const reading = state.mangaList.filter(m=>m.reading_status===1).map(m=>({
-    title:m.manga?.title,score:m.score,chaps_done:m.chapters_read,chaps_total:m.manga?.chapters,type:'manga'
+  const reading = state.mangaList.filter(m=>mStatus(m)===1||mStatus(m)==='reading').map(m=>({
+    title:mTitle(m),score:m.score||m.list_status?.score||0,
+    chaps_done:m.chapters_read||m.list_status?.num_chapters_read||0,
+    chaps_total:(m.node||m.manga||m).chapters||(m.node||m.manga||m).num_chapters||0,type:'manga'
   }));
-  const holdAnime = state.animeList.filter(a=>a.watching_status===3).map(a=>({title:a.anime?.title,score:a.score,paused_at:a.updated_at}));
-  const holdManga = state.mangaList.filter(m=>m.reading_status===3).map(m=>({title:m.manga?.title,score:m.score,paused_at:m.updated_at}));
+  const holdAnime = state.animeList.filter(a=>aStatus(a)===3||aStatus(a)==='on_hold').map(a=>({title:aTitle(a),score:a.score||0,paused_at:a.updated_at||a.list_status?.updated_at}));
+  const holdManga = state.mangaList.filter(m=>mStatus(m)===3||mStatus(m)==='on_hold').map(m=>({title:mTitle(m),score:m.score||0,paused_at:m.updated_at||m.list_status?.updated_at}));
 
   const likedGenres  = Object.entries(p.genres||{}).filter(([,v])=>v==='like').map(([k])=>k);
   const dislikedGenres = Object.entries(p.genres||{}).filter(([,v])=>v==='dislike').map(([k])=>k);
