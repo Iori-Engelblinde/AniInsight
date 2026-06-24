@@ -297,11 +297,11 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:1rem 2
       <div class="sec-title">Limite de obras simultâneas</div>
       <div class="form-group">
         <label class="form-label">Máximo de animes assistindo ao mesmo tempo</label>
-        <div class="rg"><input type="range" min="1" max="30" value="5" id="alimit" oninput="updRange('alimit','alimit-v')"><span class="rv" id="alimit-v">5</span></div>
+        <div class="rg"><input type="range" min="1" max="50" value="5" id="alimit" oninput="updRange('alimit','alimit-v')"><span class="rv" id="alimit-v">5</span></div>
       </div>
       <div class="form-group">
         <label class="form-label">Máximo de mangás lendo ao mesmo tempo</label>
-        <div class="rg"><input type="range" min="1" max="30" value="5" id="mlimit" oninput="updRange('mlimit','mlimit-v')"><span class="rv" id="mlimit-v">5</span></div>
+        <div class="rg"><input type="range" min="1" max="80" value="5" id="mlimit" oninput="updRange('mlimit','mlimit-v')"><span class="rv" id="mlimit-v">5</span></div>
       </div>
     </div>
 
@@ -651,7 +651,9 @@ function mkCard(item,type){
   const holdW=isHold&&item.updatedAt?`<div style="font-size:.7rem;color:var(--amber);margin-top:.3rem">Parado há ~${Math.round((Date.now()-item.updatedAt*1000)/86400000)} dias</div>`:'';
   const prog=total>0?`<div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div><span style="font-size:.7rem;color:var(--muted)">${done}/${total} (${pct}%)</span>`:done>0?`<span style="font-size:.7rem;color:var(--muted)">${done} ${isAnime?'eps':'caps'}</span>`:'';
   const notesEl=notes?`<div style="font-size:.7rem;color:var(--accent);margin-top:.3rem;font-style:italic">📝 ${notes.slice(0,60)}${notes.length>60?'…':''}</div>`:'';
-  const imgEl=img?`<img class="wimg" src="${img}" onerror="this.style.display='none'">`:'<div class="wimg" style="display:flex;align-items:center;justify-content:center;font-size:1.3rem">📺</div>';
+  const imgEl=img
+    ?`<img class="wimg" src="${img}" alt="${title}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'wimg',style:'display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.25rem',innerHTML:'<span style=\\'font-size:.8rem;color:var(--faint);text-align:center;padding:.25rem\\'>${isAnime?'ANIME':'MANGA'}</span>'}))">`
+    :`<div class="wimg" style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.2rem"><span style="font-size:.65rem;color:var(--faint);text-align:center">${isAnime?'ANIME':'MANGA'}</span></div>`;
   return `<div class="wcard"><div class="pbar ${bar}"></div>${imgEl}<div class="winfo"><div class="wtitle" title="${title}">${title}</div><div class="wmeta"><span class="sbadge ${sc}">${scoreDisp}</span>${stag}</div>${prog}${notesEl}${holdW}</div></div>`;
 }
 
@@ -675,53 +677,95 @@ function renderInsightsPage(){
     el.innerHTML='<div class="empty"><div class="ei">📡</div><p>Carregue sua lista primeiro.</p></div>';
     ga.innerHTML=''; return;
   }
-  // Focus selector UI
   ga.innerHTML=`
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;margin-bottom:1rem;text-align:left">
-      <div class="sec-title" style="margin-bottom:1rem">🎛️ Foco da análise</div>
-      <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem" id="focus-btns">
-        <button class="fbtn active" data-focus="all" onclick="setFocus('all',this)">🔍 Lista toda</button>
-        <button class="fbtn" data-focus="watching" onclick="setFocus('watching',this)">📺 Só assistindo</button>
-        <button class="fbtn" data-focus="reading" onclick="setFocus('reading',this)">📖 Só lendo</button>
-        <button class="fbtn" data-focus="onhold" onclick="setFocus('onhold',this)">⏸️ On Hold</button>
-        <button class="fbtn" data-focus="drop" onclick="setFocus('drop',this)">🗑️ O que dropar</button>
-        <button class="fbtn" data-focus="liked" onclick="setFocus('liked',this)">❤️ Que você parece gostar</button>
-        <button class="fbtn" data-focus="stalled" onclick="setFocus('stalled',this)">😴 Sem atualizar faz tempo</button>
-        <button class="fbtn" data-focus="next" onclick="setFocus('next',this)">🚀 O que ver a seguir</button>
+      <div class="sec-title" style="margin-bottom:1rem">🎛️ Configure a análise</div>
+
+      <div class="form-label" style="margin-bottom:.5rem">1. Qual lista analisar?</div>
+      <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1.25rem" id="list-btns">
+        <button class="fbtn active" data-list="all" onclick="setListFocus('all',this)">🗂️ Toda a lista</button>
+        <button class="fbtn" data-list="watching" onclick="setListFocus('watching',this)">📺 Assistindo (anime)</button>
+        <button class="fbtn" data-list="reading" onclick="setListFocus('reading',this)">📖 Lendo (mangá)</button>
+        <button class="fbtn" data-list="onhold_anime" onclick="setListFocus('onhold_anime',this)">⏸️ On Hold (anime)</button>
+        <button class="fbtn" data-list="onhold_manga" onclick="setListFocus('onhold_manga',this)">⏸️ On Hold (mangá)</button>
+        <button class="fbtn" data-list="onhold_all" onclick="setListFocus('onhold_all',this)">⏸️ On Hold (tudo)</button>
       </div>
-      <div style="font-size:.78rem;color:var(--faint);margin-bottom:1rem" id="focus-desc">Análise completa de toda a lista — prioridades, drops, on hold e sugestões.</div>
-      <button class="btn btn-full" onclick="genInsights()"${!hasKey?' disabled title="Configure a API key no Perfil"':''}>🧠 Gerar Insights com IA</button>
+
+      <div class="form-label" style="margin-bottom:.5rem">2. O que você quer saber?</div>
+      <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1.25rem" id="aspect-btns">
+        <button class="fbtn active" data-asp="full" onclick="setAspect('full',this)">🔍 Análise completa</button>
+        <button class="fbtn" data-asp="drop" onclick="setAspect('drop',this)">🗑️ O que dropar</button>
+        <button class="fbtn" data-asp="finish" onclick="setAspect('finish',this)">🏁 O que terminar logo</button>
+        <button class="fbtn" data-asp="liked" onclick="setAspect('liked',this)">❤️ Que você parece gostar</button>
+        <button class="fbtn" data-asp="stalled" onclick="setAspect('stalled',this)">😴 Sem atualizar faz tempo</button>
+        <button class="fbtn" data-asp="next" onclick="setAspect('next',this)">🚀 O que ver/ler a seguir</button>
+        <button class="fbtn" data-asp="onhold_verdict" onclick="setAspect('onhold_verdict',this)">⚖️ Veredicto do On Hold</button>
+      </div>
+
+      <div style="font-size:.78rem;color:var(--faint);margin-bottom:1rem;padding:.6rem .85rem;background:var(--surface2);border-radius:6px" id="focus-desc">Análise completa de toda a lista — prioridades, drops, on hold e sugestões.</div>
+      <button class="btn btn-full" onclick="genInsights()"${!hasKey?' disabled':''}>🧠 Gerar Insights com IA</button>
       ${!hasKey?'<p class="hint" style="margin-top:.5rem;text-align:center">Configure sua API key no Perfil primeiro.</p>':''}
     </div>`;
-  if(el.querySelector('.empty')) el.innerHTML='<div class="empty"><div class="ei">🤖</div><p>Escolha um foco acima e clique em Gerar.</p></div>';
+  if(!document.getElementById('insights-content').querySelector('.icard'))
+    el.innerHTML='<div class="empty"><div class="ei">🤖</div><p>Selecione a lista e o aspecto acima e clique em Gerar.</p></div>';
 }
 
 const FOCUS_DESC={
-  all:'Análise completa — prioridades, drops, on hold e sugestões.',
-  watching:'Foco nos animes que está assistindo agora — o que continuar e o que dropar.',
-  reading:'Foco nos mangás que está lendo agora — o que continuar e o que dropar.',
-  onhold:'Veredicto para cada obra pausada — retomar, dropar ou aguardar.',
-  drop:'Quais obras da lista ativa merecem ser dropadas com base no seu perfil.',
-  liked:'Obras que você parece gostar (nota alta ou progresso rápido) mas tem tempo sem atualizar.',
-  stalled:'Obras que não atualiza faz mais de 30 dias — ainda vale continuar?',
-  next:'Sugestões do que iniciar quando terminar algo, baseado no seu perfil.',
+  all_full:'Análise completa de toda a lista — prioridades, drops, on hold e sugestões.',
+  all_drop:'Quais obras da lista toda merecem ser dropadas.',
+  all_finish:'Quais obras você está mais perto de terminar e deveria priorizar.',
+  all_liked:'Obras que você parece curtir (nota alta ou progresso rápido) mas tem tempo sem atualizar.',
+  all_stalled:'Obras sem atualização há +30 dias — ainda vale continuar?',
+  all_next:'Sugestões do que iniciar quando terminar algo, baseado no seu perfil.',
+  all_onhold_verdict:'Veredicto para cada obra em on hold — retomar, dropar ou aguardar.',
+  watching_full:'Análise completa dos animes que está assistindo.',
+  watching_drop:'Quais animes que está assistindo merecem ser dropados.',
+  watching_finish:'Quais animes você está mais perto de terminar.',
+  watching_liked:'Animes que você parece gostar mas tem tempo sem atualizar.',
+  watching_stalled:'Animes sem atualização há +30 dias.',
+  watching_next:'Sugestões de animes para iniciar a seguir.',
+  watching_onhold_verdict:'Veredicto dos animes em on hold.',
+  reading_full:'Análise completa dos mangás que está lendo.',
+  reading_drop:'Quais mangás que está lendo merecem ser dropados.',
+  reading_finish:'Quais mangás você está mais perto de terminar.',
+  reading_liked:'Mangás que você parece gostar mas tem tempo sem atualizar.',
+  reading_stalled:'Mangás sem atualização há +30 dias.',
+  reading_next:'Sugestões de mangás para iniciar a seguir.',
+  reading_onhold_verdict:'Veredicto dos mangás em on hold.',
+  onhold_anime_full:'Análise completa dos animes em on hold.',
+  onhold_manga_full:'Análise completa dos mangás em on hold.',
+  onhold_all_full:'Análise de todas as obras em on hold.',
+  onhold_all_onhold_verdict:'Veredicto completo de tudo que está em on hold.',
 };
-let currentFocus='all';
-function setFocus(f,el){
-  currentFocus=f;
-  document.querySelectorAll('#focus-btns .fbtn').forEach(b=>b.classList.remove('active'));
+
+let currentList='all', currentAspect='full';
+function setListFocus(v,el){
+  currentList=v;
+  document.querySelectorAll('#list-btns .fbtn').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('focus-desc').textContent=FOCUS_DESC[f]||'';
+  updFocusDesc();
+}
+function setAspect(v,el){
+  currentAspect=v;
+  document.querySelectorAll('#aspect-btns .fbtn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  updFocusDesc();
+}
+function updFocusDesc(){
+  const key=`${currentList}_${currentAspect}`;
+  const desc=FOCUS_DESC[key]||FOCUS_DESC[`${currentList}_full`]||'Análise personalizada com base na seleção.';
+  const el=document.getElementById('focus-desc');
+  if(el) el.textContent=desc;
 }
 
 async function genInsights(){
   const p=state.profile;
   if(!p.apiKey){toast('Configure sua API key no Perfil','warn');return;}
   document.getElementById('insights-content').innerHTML='<div class="loader"><div class="spin"></div>Analisando com IA...</div>';
-  // disable button during loading
-  document.querySelector('#gen-area .btn').disabled=true;
+  const btn=document.querySelector('#gen-area .btn');
+  if(btn) btn.disabled=true;
   try{
-    const prompt=buildPrompt(currentFocus);
+    const prompt=buildPrompt(currentList, currentAspect);
     let raw;
     if(p.ai==='claude') raw=await callClaude(prompt,p.apiKey);
     else if(p.ai==='openai') raw=await callOpenAI(prompt,p.apiKey);
@@ -730,7 +774,7 @@ async function genInsights(){
   }catch(e){
     document.getElementById('insights-content').innerHTML=`<div class="alert ad">Erro: ${e.message}</div>`;
   }
-  document.querySelector('#gen-area .btn').disabled=false;
+  if(btn) btn.disabled=false;
 }
 
 function extractJSON(raw){
@@ -743,17 +787,16 @@ function extractJSON(raw){
   return JSON.parse(s);
 }
 
-function buildPrompt(focus='all'){
+function buildPrompt(list='all', aspect='full'){
   const p=state.profile;
   const gt=i=>i.media?.title?.english||i.media?.title?.romaji||'';
   const gd=i=>i.updatedAt?Math.round((Date.now()-i.updatedAt*1000)/86400000):null;
-  const fmt=list=>list.map(i=>({
+  const fmt=arr=>arr.map(i=>({
     title:gt(i),
-    score10:i.score?(i.score/10).toFixed(1):'sem nota',
-    progresso:i.progress||0,
-    total:i.media?.episodes||i.media?.chapters||'?',
-    dias_sem_atualizar:gd(i),
-    generos:(i.media?.genres||[]).join(', ')||'?',
+    nota:i.score?(i.score/10).toFixed(1):'sem nota',
+    progresso:`${i.progress||0}/${i.media?.episodes||i.media?.chapters||'?'}`,
+    dias_sem_atualizar:gd(i)??'desconhecido',
+    generos:(i.media?.genres||[]).slice(0,4).join(', ')||'?',
     notas_pessoais:i.notes||''
   }));
 
@@ -761,59 +804,68 @@ function buildPrompt(focus='all'){
   const reading=state.mangaList.filter(m=>m.status==='CURRENT');
   const holdA=state.animeList.filter(a=>a.status==='PAUSED');
   const holdM=state.mangaList.filter(m=>m.status==='PAUSED');
-  const stalled=[...watching,...reading].filter(i=>gd(i)!==null&&gd(i)>30);
-  const liked=[...watching,...reading].filter(i=>i.score>=70);
+
+  // Select dataset based on list choice
+  let dataset='';
+  if(list==='watching')      dataset=`ANIMES ASSISTINDO:\n${JSON.stringify(fmt(watching),null,2)}`;
+  else if(list==='reading')  dataset=`MANGÁS LENDO:\n${JSON.stringify(fmt(reading),null,2)}`;
+  else if(list==='onhold_anime') dataset=`ANIMES EM ON HOLD:\n${JSON.stringify(fmt(holdA),null,2)}`;
+  else if(list==='onhold_manga') dataset=`MANGÁS EM ON HOLD:\n${JSON.stringify(fmt(holdM),null,2)}`;
+  else if(list==='onhold_all')   dataset=`ANIMES EM ON HOLD:\n${JSON.stringify(fmt(holdA),null,2)}\n\nMANGÁS EM ON HOLD:\n${JSON.stringify(fmt(holdM),null,2)}`;
+  else dataset=`ANIMES ASSISTINDO:\n${JSON.stringify(fmt(watching),null,2)}\n\nMANGÁS LENDO:\n${JSON.stringify(fmt(reading),null,2)}\n\nANIMES ON HOLD:\n${JSON.stringify(fmt(holdA),null,2)}\n\nMANGÁS ON HOLD:\n${JSON.stringify(fmt(holdM),null,2)}`;
+
+  // Select instruction based on aspect
+  const aspectInstr={
+    full:`Faça análise COMPLETA: prioridades do que focar agora, candidatos a drop, veredicto de on hold e sugestões de próximas obras.`,
+    drop:`Foque APENAS em identificar obras que merecem ser DROPADAS. Justifique cada uma com base em nota, progresso, gênero, notas pessoais e perfil do usuário. Seja direto e honesto.`,
+    finish:`Identifique as obras mais próximas de terminar ou que vale a pena priorizar para concluir logo (poucos episódios/capítulos restantes, nota alta, progresso avançado). Ordene por urgência.`,
+    liked:`Encontre obras que o usuário PARECE GOSTAR (nota ≥7, progresso rápido, notas pessoais positivas) mas que tem tempo sem atualizar. Incentive a retomar essas obras especificamente.`,
+    stalled:`Analise obras sem atualização há mais de 30 dias. Para cada uma avalie: ainda vale continuar? O usuário vai realmente retomar? Seja realista.`,
+    next:`Sugira 5-8 obras para iniciar quando terminar algo. Baseie-se FORTEMENTE no perfil de gostos, questionário e histórico. Pode sugerir obras fora da lista atual.`,
+    onhold_verdict:`Para cada obra em on hold, dê um veredicto claro: RETOMAR (ainda tem valor), DROPAR (perdeu o momento ou não encaixa no perfil) ou AGUARDAR (obra em hiato ou aguardando temporada). Justifique cada um.`,
+  }[aspect]||'Faça análise completa.';
+
+  // JSON fields relevant per aspect
+  const jsonSchema=aspect==='drop'?
+    `{"drop_candidates":[{"title":"","reason":""}],"general_insight":""}`:
+    aspect==='finish'?
+    `{"priorities":[{"title":"","reason":"","urgency":"high|medium|low"}],"general_insight":""}`:
+    aspect==='onhold_verdict'?
+    `{"onhold_analysis":[{"title":"","recommendation":"retomar|dropar|aguardar","reason":""}],"general_insight":""}`:
+    aspect==='next'?
+    `{"next_works":[{"title":"","reason":"","type":"anime|manga"}],"general_insight":""}`:
+    `{"priorities":[{"title":"","reason":"","urgency":"high|medium|low"}],"drop_candidates":[{"title":"","reason":""}],"onhold_analysis":[{"title":"","recommendation":"retomar|dropar|aguardar","reason":""}],"next_works":[{"title":"","reason":"","type":"anime|manga"}],"general_insight":""}`;
 
   const liked_g=k=>Object.entries(p[k]||{}).filter(([,v])=>v==='like').map(([k])=>k);
   const disliked_g=k=>Object.entries(p[k]||{}).filter(([,v])=>v==='dislike').map(([k])=>k);
   const answers=Object.entries(p.answers||{}).map(([id,v])=>{const q=QUESTIONS.find(q=>q.id===id);return q?`${q.q} → ${v}`:''}).filter(Boolean).join('\n');
 
-  const focusInstructions={
-    all:`Faça análise COMPLETA: prioridades, drops, veredicto de on hold e sugestões de próximas obras.`,
-    watching:`Foque APENAS nos animes que está assistindo. Diga quais priorizar, quais dropar e por quê. Não mencione mangás ou on hold.`,
-    reading:`Foque APENAS nos mangás que está lendo. Diga quais priorizar, quais dropar e por quê. Não mencione animes ou on hold.`,
-    onhold:`Foque APENAS nas obras em on hold. Para cada uma dê veredicto: retomar, dropar ou aguardar, com justificativa clara.`,
-    drop:`Liste quais obras da lista ATIVA merecem ser dropadas. Seja direto. Use nota, progresso, gênero e notas pessoais como critério.`,
-    liked:`Encontre obras com nota alta (≥7) ou progresso rápido que o usuário parece curtir mas tem mais de 30 dias sem atualizar. Incentive a retomar.`,
-    stalled:`Foque nas obras sem atualização há mais de 30 dias. Para cada uma avalie se ainda vale continuar ou se perdeu o momento.`,
-    next:`Sugira 5-8 obras para iniciar quando terminar algo. Baseie-se fortemente no perfil de gostos e no histórico. Pode sugerir obras fora da lista.`,
-  };
+  return `Você é especialista em anime e mangá. Analise a lista de "${state.username}" e responda em português.
 
-  const datasection=focus==='watching'?`ASSISTINDO:\n${JSON.stringify(fmt(watching),null,2)}`:
-    focus==='reading'?`LENDO:\n${JSON.stringify(fmt(reading),null,2)}`:
-    focus==='onhold'?`ON HOLD - Animes:\n${JSON.stringify(fmt(holdA),null,2)}\n\nON HOLD - Mangás:\n${JSON.stringify(fmt(holdM),null,2)}`:
-    focus==='drop'?`ASSISTINDO:\n${JSON.stringify(fmt(watching),null,2)}\n\nLENDO:\n${JSON.stringify(fmt(reading),null,2)}`:
-    focus==='liked'?`OBRAS COM NOTA ALTA OU PROGRESSO RÁPIDO:\n${JSON.stringify(fmt(liked),null,2)}`:
-    focus==='stalled'?`OBRAS SEM ATUALIZAÇÃO HÁ +30 DIAS:\n${JSON.stringify(fmt(stalled),null,2)}`:
-    focus==='next'?`ASSISTINDO:\n${JSON.stringify(fmt(watching),null,2)}\n\nLENDO:\n${JSON.stringify(fmt(reading),null,2)}`:
-    `ASSISTINDO:\n${JSON.stringify(fmt(watching),null,2)}\n\nLENDO:\n${JSON.stringify(fmt(reading),null,2)}\n\nON HOLD - Animes:\n${JSON.stringify(fmt(holdA),null,2)}\n\nON HOLD - Mangás:\n${JSON.stringify(fmt(holdM),null,2)}`;
-
-  return `Você é especialista em anime e mangá. Analise o perfil de "${state.username}" em português.
-
-${datasection}
+=== DADOS ===
+${dataset}
 
 === PERFIL DE GOSTOS ===
 Gêneros curtidos: ${liked_g('genres').join(', ')||'não definido'}
 Gêneros não curtidos: ${disliked_g('genres').join(', ')||'não definido'}
 Temas curtidos: ${liked_g('themes').join(', ')||'não definido'}
 Demografias preferidas: ${liked_g('demographics').join(', ')||'não definido'}
-Limite animes simultâneos: ${p.animeLimit} | Ativos agora: ${watching.length}
-Limite mangás simultâneos: ${p.mangaLimit} | Ativos agora: ${reading.length}
+Limite animes: ${p.animeLimit} | Ativos: ${watching.length}
+Limite mangás: ${p.mangaLimit} | Ativos: ${reading.length}
 
 === QUESTIONÁRIO ===
 ${answers||'Não respondido'}
 
-=== FOCO DESTA ANÁLISE ===
-${focusInstructions[focus]||focusInstructions.all}
+=== INSTRUÇÃO ===
+${aspectInstr}
 
-REGRAS OBRIGATÓRIAS:
-- Responda SOMENTE com JSON puro, sem nenhum texto antes ou depois, sem \`\`\`json, sem markdown
-- Use notas pessoais (campo "notas_pessoais") como sinal FORTE de opinião do usuário
-- Seja direto e específico, nunca genérico
-- Se o usuário está no limite de obras, não sugira começar muitas coisas novas
+REGRAS:
+- Responda SOMENTE com JSON puro, sem \`\`\`json, sem markdown, sem texto antes ou depois
+- Use "notas_pessoais" como sinal FORTE da opinião do usuário
+- Seja direto, específico e personalizado — nunca genérico
 
-JSON esperado (use apenas os campos relevantes ao foco, os outros podem ser arrays vazios []):
-{"priorities":[{"title":"","reason":"","urgency":"high|medium|low"}],"drop_candidates":[{"title":"","reason":""}],"onhold_analysis":[{"title":"","recommendation":"retomar|dropar|aguardar","reason":""}],"next_works":[{"title":"","reason":"","type":"anime|manga"}],"general_insight":""}`;
+JSON esperado:
+${jsonSchema}`;
 }
 
 async function callClaude(prompt,key){
