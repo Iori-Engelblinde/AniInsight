@@ -763,26 +763,89 @@ function renderInsights(raw){
   try{data=JSON.parse(raw.replace(/```json|```/g,'').trim());}
   catch(e){document.getElementById('insights-content').innerHTML=`<div class="icard"><div class="icard-body">${raw.replace(/\n/g,'<br>')}</div></div>`;return;}
   const uc={high:'var(--red)',medium:'var(--amber)',low:'var(--green)'};
-  const ul={high:'Alta prioridade',medium:'Média prioridade',low:'Baixa prioridade'};
+  const ul={high:'🔴 Alta prioridade',medium:'🟡 Média prioridade',low:'🟢 Baixa prioridade'};
   const rc={retomar:'var(--green)',dropar:'var(--red)',aguardar:'var(--amber)'};
+  const rl={retomar:'↩️ Retomar',dropar:'🗑️ Dropar',aguardar:'⏳ Aguardar'};
   let h='';
-  if(data.general_insight) h+=`<div class="icard"><div style="display:flex;align-items:center;gap:.7rem;margin-bottom:.9rem"><div style="font-size:1.3rem">🧠</div><strong>Análise Geral</strong></div><div class="icard-body">${data.general_insight}</div></div>`;
+
+  // ANÁLISE GERAL — destaque
+  if(data.general_insight){
+    h+=`<div class="icard" style="border:1px solid var(--accent);background:rgba(192,132,252,.05);margin-bottom:1.5rem">
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.9rem">
+        <div style="width:38px;height:38px;border-radius:9px;background:rgba(192,132,252,.15);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0">🧠</div>
+        <div>
+          <div style="font-family:'Cinzel',serif;font-size:.95rem;color:var(--accent)">Análise do seu Perfil</div>
+          <div style="font-size:.72rem;color:var(--faint);margin-top:.1rem">gerado por IA com base na sua lista e questionário</div>
+        </div>
+      </div>
+      <div class="icard-body" style="line-height:1.85">${data.general_insight}</div>
+    </div>`;
+  }
+
+  // PRIORIDADES
   if(data.priorities?.length){
-    h+='<div class="sec-title" style="margin:1.5rem 0 .9rem">🎯 Priorize agora</div>';
-    data.priorities.forEach(i=>h+=`<div class="icard" style="border-left:3px solid ${uc[i.urgency]||'var(--accent)'}"><div style="display:flex;justify-content:space-between;margin-bottom:.6rem"><strong>${i.title}</strong><span style="font-size:.7rem;color:${uc[i.urgency]||'var(--accent)'}">${ul[i.urgency]||''}</span></div><div class="icard-body">${i.reason}</div></div>`);
+    h+=`<div class="sec-title" style="margin:1.75rem 0 1rem">🎯 Priorize agora</div>`;
+    data.priorities.forEach((item,idx)=>{
+      const color=uc[item.urgency]||'var(--accent)';
+      h+=`<div class="icard" style="border-left:3px solid ${color};margin-bottom:.6rem">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;margin-bottom:.55rem">
+          <div style="display:flex;align-items:center;gap:.55rem">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--faint);flex-shrink:0">#${idx+1}</span>
+            <strong style="font-size:.9rem;line-height:1.3">${item.title}</strong>
+          </div>
+          <span style="font-size:.7rem;padding:.18rem .6rem;border-radius:20px;background:rgba(255,255,255,.05);color:${color};white-space:nowrap;flex-shrink:0">${ul[item.urgency]||''}</span>
+        </div>
+        <div class="icard-body" style="padding-left:1.55rem;line-height:1.75">${item.reason}</div>
+      </div>`;
+    });
   }
+
+  // DROP
   if(data.drop_candidates?.length){
-    h+='<div class="sec-title" style="margin:1.5rem 0 .9rem">🗑️ Considere dropar</div>';
-    data.drop_candidates.forEach(i=>h+=`<div class="icard" style="border-left:3px solid var(--red)"><div style="margin-bottom:.6rem"><strong>${i.title}</strong></div><div class="icard-body">${i.reason}</div></div>`);
+    h+=`<div class="sec-title" style="margin:1.75rem 0 1rem">🗑️ Considere dropar</div>`;
+    data.drop_candidates.forEach(item=>{
+      h+=`<div class="icard" style="border-left:3px solid var(--red);margin-bottom:.6rem">
+        <div style="display:flex;align-items:center;gap:.55rem;margin-bottom:.5rem">
+          <span>💀</span>
+          <strong style="font-size:.88rem;line-height:1.3">${item.title}</strong>
+        </div>
+        <div class="icard-body" style="padding-left:1.55rem;line-height:1.75">${item.reason}</div>
+      </div>`;
+    });
   }
+
+  // ON HOLD
   if(data.onhold_analysis?.length){
-    h+='<div class="sec-title" style="margin:1.5rem 0 .9rem">⏸️ On Hold — veredicto</div>';
-    data.onhold_analysis.forEach(i=>{const c=rc[i.recommendation]||'var(--muted)';const l=i.recommendation==='retomar'?'↩️ Retomar':i.recommendation==='dropar'?'🗑️ Dropar':'⏳ Aguardar';h+=`<div class="icard" style="border-left:3px solid ${c}"><div style="display:flex;justify-content:space-between;margin-bottom:.6rem"><strong>${i.title}</strong><span style="font-size:.78rem;color:${c}">${l}</span></div><div class="icard-body">${i.reason}</div></div>`;});
+    h+=`<div class="sec-title" style="margin:1.75rem 0 1rem">⏸️ On Hold — veredicto</div>`;
+    data.onhold_analysis.forEach(item=>{
+      const c=rc[item.recommendation]||'var(--muted)';
+      const l=rl[item.recommendation]||item.recommendation;
+      h+=`<div class="icard" style="border-left:3px solid ${c};margin-bottom:.6rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.5rem">
+          <strong style="font-size:.88rem;line-height:1.3">${item.title}</strong>
+          <span style="font-size:.72rem;padding:.18rem .65rem;border-radius:20px;background:rgba(255,255,255,.05);color:${c};white-space:nowrap;flex-shrink:0">${l}</span>
+        </div>
+        <div class="icard-body" style="line-height:1.75">${item.reason}</div>
+      </div>`;
+    });
   }
+
+  // PRÓXIMAS
   if(data.next_works?.length){
-    h+='<div class="sec-title" style="margin:1.5rem 0 .9rem">🚀 Próximas obras para você</div>';
-    data.next_works.forEach(i=>h+=`<div class="icard"><div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem"><span>${i.type==='manga'?'📖':'📺'}</span><strong>${i.title}</strong></div><div class="icard-body">${i.reason}</div></div>`);
+    h+=`<div class="sec-title" style="margin:1.75rem 0 1rem">🚀 Próximas obras para você</div><div class="grid g2" style="margin-bottom:1.5rem">`;
+    data.next_works.forEach(item=>{
+      const icon=item.type==='manga'?'📖':'📺';
+      h+=`<div class="icard" style="border-top:2px solid var(--accent)">
+        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.6rem">
+          <span style="font-size:1.1rem">${icon}</span>
+          <strong style="font-size:.88rem">${item.title}</strong>
+        </div>
+        <div class="icard-body" style="line-height:1.75">${item.reason}</div>
+      </div>`;
+    });
+    h+='</div>';
   }
+
   document.getElementById('insights-content').innerHTML=h||'<div class="empty"><p>Sem dados retornados.</p></div>';
 }
 
