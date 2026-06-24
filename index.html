@@ -664,21 +664,64 @@ function renderNextUp(watching,reading){
 }
 
 // ============================================================
-// INSIGHTS
+// INSIGHTS PAGE
 // ============================================================
 function renderInsightsPage(){
   const hasData=state.animeList.length||state.mangaList.length;
   const hasKey=state.profile.apiKey;
-  document.getElementById('gen-area').innerHTML=hasData?`<button class="btn" onclick="genInsights()">🧠 Gerar Insights com IA</button>${!hasKey?'<p class="hint" style="margin-top:.4rem">Configure sua API key no Perfil.</p>':''}`:'';
+  const el=document.getElementById('insights-content');
+  const ga=document.getElementById('gen-area');
+  if(!hasData){
+    el.innerHTML='<div class="empty"><div class="ei">📡</div><p>Carregue sua lista primeiro.</p></div>';
+    ga.innerHTML=''; return;
+  }
+  // Focus selector UI
+  ga.innerHTML=`
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;margin-bottom:1rem;text-align:left">
+      <div class="sec-title" style="margin-bottom:1rem">🎛️ Foco da análise</div>
+      <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem" id="focus-btns">
+        <button class="fbtn active" data-focus="all" onclick="setFocus('all',this)">🔍 Lista toda</button>
+        <button class="fbtn" data-focus="watching" onclick="setFocus('watching',this)">📺 Só assistindo</button>
+        <button class="fbtn" data-focus="reading" onclick="setFocus('reading',this)">📖 Só lendo</button>
+        <button class="fbtn" data-focus="onhold" onclick="setFocus('onhold',this)">⏸️ On Hold</button>
+        <button class="fbtn" data-focus="drop" onclick="setFocus('drop',this)">🗑️ O que dropar</button>
+        <button class="fbtn" data-focus="liked" onclick="setFocus('liked',this)">❤️ Que você parece gostar</button>
+        <button class="fbtn" data-focus="stalled" onclick="setFocus('stalled',this)">😴 Sem atualizar faz tempo</button>
+        <button class="fbtn" data-focus="next" onclick="setFocus('next',this)">🚀 O que ver a seguir</button>
+      </div>
+      <div style="font-size:.78rem;color:var(--faint);margin-bottom:1rem" id="focus-desc">Análise completa de toda a lista — prioridades, drops, on hold e sugestões.</div>
+      <button class="btn btn-full" onclick="genInsights()"${!hasKey?' disabled title="Configure a API key no Perfil"':''}>🧠 Gerar Insights com IA</button>
+      ${!hasKey?'<p class="hint" style="margin-top:.5rem;text-align:center">Configure sua API key no Perfil primeiro.</p>':''}
+    </div>`;
+  if(el.querySelector('.empty')) el.innerHTML='<div class="empty"><div class="ei">🤖</div><p>Escolha um foco acima e clique em Gerar.</p></div>';
+}
+
+const FOCUS_DESC={
+  all:'Análise completa — prioridades, drops, on hold e sugestões.',
+  watching:'Foco nos animes que está assistindo agora — o que continuar e o que dropar.',
+  reading:'Foco nos mangás que está lendo agora — o que continuar e o que dropar.',
+  onhold:'Veredicto para cada obra pausada — retomar, dropar ou aguardar.',
+  drop:'Quais obras da lista ativa merecem ser dropadas com base no seu perfil.',
+  liked:'Obras que você parece gostar (nota alta ou progresso rápido) mas tem tempo sem atualizar.',
+  stalled:'Obras que não atualiza faz mais de 30 dias — ainda vale continuar?',
+  next:'Sugestões do que iniciar quando terminar algo, baseado no seu perfil.',
+};
+let currentFocus='all';
+function setFocus(f,el){
+  currentFocus=f;
+  document.querySelectorAll('#focus-btns .fbtn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('focus-desc').textContent=FOCUS_DESC[f]||'';
 }
 
 async function genInsights(){
   const p=state.profile;
   if(!p.apiKey){toast('Configure sua API key no Perfil','warn');return;}
   document.getElementById('insights-content').innerHTML='<div class="loader"><div class="spin"></div>Analisando com IA...</div>';
-  document.getElementById('gen-area').innerHTML='';
+  // disable button during loading
+  document.querySelector('#gen-area .btn').disabled=true;
   try{
-    const prompt=buildPrompt();
+    const prompt=buildPrompt(currentFocus);
     let raw;
     if(p.ai==='claude') raw=await callClaude(prompt,p.apiKey);
     else if(p.ai==='openai') raw=await callOpenAI(prompt,p.apiKey);
@@ -687,59 +730,90 @@ async function genInsights(){
   }catch(e){
     document.getElementById('insights-content').innerHTML=`<div class="alert ad">Erro: ${e.message}</div>`;
   }
-  document.getElementById('gen-area').innerHTML='<button class="btn btn-outline btn-sm" onclick="genInsights()">🔄 Regenerar</button>';
+  document.querySelector('#gen-area .btn').disabled=false;
 }
 
-function buildPrompt(){
+function extractJSON(raw){
+  // Remove markdown code fences (```json ... ``` or ``` ... ```)
+  let s=raw.replace(/^```(?:json)?\s*/i,'').replace(/\s*```\s*$/,'').trim();
+  // Find first { and last } in case there's extra text
+  const start=s.indexOf('{');
+  const end=s.lastIndexOf('}');
+  if(start!==-1&&end!==-1) s=s.slice(start,end+1);
+  return JSON.parse(s);
+}
+
+function buildPrompt(focus='all'){
   const p=state.profile;
   const gt=i=>i.media?.title?.english||i.media?.title?.romaji||'';
   const gd=i=>i.updatedAt?Math.round((Date.now()-i.updatedAt*1000)/86400000):null;
-  const watching=state.animeList.filter(a=>a.status==='CURRENT').map(a=>({title:gt(a),score10:(a.score/10).toFixed(1),eps:a.progress+'/'+((a.media?.episodes)||'?'),genres:(a.media?.genres||[]).join(', '),notes:a.notes||''}));
-  const reading=state.mangaList.filter(m=>m.status==='CURRENT').map(m=>({title:gt(m),score10:(m.score/10).toFixed(1),caps:m.progress+'/'+((m.media?.chapters)||'?'),genres:(m.media?.genres||[]).join(', '),notes:m.notes||''}));
-  const holdA=state.animeList.filter(a=>a.status==='PAUSED').map(a=>({title:gt(a),score10:(a.score/10).toFixed(1),dias_parado:gd(a),notes:a.notes||''}));
-  const holdM=state.mangaList.filter(m=>m.status==='PAUSED').map(m=>({title:gt(m),score10:(m.score/10).toFixed(1),dias_parado:gd(m),notes:m.notes||''}));
-  const liked=k=>Object.entries(p[k]||{}).filter(([,v])=>v==='like').map(([k])=>k);
-  const disliked=k=>Object.entries(p[k]||{}).filter(([,v])=>v==='dislike').map(([k])=>k);
+  const fmt=list=>list.map(i=>({
+    title:gt(i),
+    score10:i.score?(i.score/10).toFixed(1):'sem nota',
+    progresso:i.progress||0,
+    total:i.media?.episodes||i.media?.chapters||'?',
+    dias_sem_atualizar:gd(i),
+    generos:(i.media?.genres||[]).join(', ')||'?',
+    notas_pessoais:i.notes||''
+  }));
+
+  const watching=state.animeList.filter(a=>a.status==='CURRENT');
+  const reading=state.mangaList.filter(m=>m.status==='CURRENT');
+  const holdA=state.animeList.filter(a=>a.status==='PAUSED');
+  const holdM=state.mangaList.filter(m=>m.status==='PAUSED');
+  const stalled=[...watching,...reading].filter(i=>gd(i)!==null&&gd(i)>30);
+  const liked=[...watching,...reading].filter(i=>i.score>=70);
+
+  const liked_g=k=>Object.entries(p[k]||{}).filter(([,v])=>v==='like').map(([k])=>k);
+  const disliked_g=k=>Object.entries(p[k]||{}).filter(([,v])=>v==='dislike').map(([k])=>k);
   const answers=Object.entries(p.answers||{}).map(([id,v])=>{const q=QUESTIONS.find(q=>q.id===id);return q?`${q.q} → ${v}`:''}).filter(Boolean).join('\n');
-  return `Você é especialista em anime e mangá. Analise o perfil de "${state.username}" e gere insights DETALHADOS E PERSONALIZADOS em português.
 
-=== ASSISTINDO (${watching.length} animes) ===
-${JSON.stringify(watching,null,2)}
+  const focusInstructions={
+    all:`Faça análise COMPLETA: prioridades, drops, veredicto de on hold e sugestões de próximas obras.`,
+    watching:`Foque APENAS nos animes que está assistindo. Diga quais priorizar, quais dropar e por quê. Não mencione mangás ou on hold.`,
+    reading:`Foque APENAS nos mangás que está lendo. Diga quais priorizar, quais dropar e por quê. Não mencione animes ou on hold.`,
+    onhold:`Foque APENAS nas obras em on hold. Para cada uma dê veredicto: retomar, dropar ou aguardar, com justificativa clara.`,
+    drop:`Liste quais obras da lista ATIVA merecem ser dropadas. Seja direto. Use nota, progresso, gênero e notas pessoais como critério.`,
+    liked:`Encontre obras com nota alta (≥7) ou progresso rápido que o usuário parece curtir mas tem mais de 30 dias sem atualizar. Incentive a retomar.`,
+    stalled:`Foque nas obras sem atualização há mais de 30 dias. Para cada uma avalie se ainda vale continuar ou se perdeu o momento.`,
+    next:`Sugira 5-8 obras para iniciar quando terminar algo. Baseie-se fortemente no perfil de gostos e no histórico. Pode sugerir obras fora da lista.`,
+  };
 
-=== LENDO (${reading.length} mangás) ===
-${JSON.stringify(reading,null,2)}
+  const datasection=focus==='watching'?`ASSISTINDO:\n${JSON.stringify(fmt(watching),null,2)}`:
+    focus==='reading'?`LENDO:\n${JSON.stringify(fmt(reading),null,2)}`:
+    focus==='onhold'?`ON HOLD - Animes:\n${JSON.stringify(fmt(holdA),null,2)}\n\nON HOLD - Mangás:\n${JSON.stringify(fmt(holdM),null,2)}`:
+    focus==='drop'?`ASSISTINDO:\n${JSON.stringify(fmt(watching),null,2)}\n\nLENDO:\n${JSON.stringify(fmt(reading),null,2)}`:
+    focus==='liked'?`OBRAS COM NOTA ALTA OU PROGRESSO RÁPIDO:\n${JSON.stringify(fmt(liked),null,2)}`:
+    focus==='stalled'?`OBRAS SEM ATUALIZAÇÃO HÁ +30 DIAS:\n${JSON.stringify(fmt(stalled),null,2)}`:
+    focus==='next'?`ASSISTINDO:\n${JSON.stringify(fmt(watching),null,2)}\n\nLENDO:\n${JSON.stringify(fmt(reading),null,2)}`:
+    `ASSISTINDO:\n${JSON.stringify(fmt(watching),null,2)}\n\nLENDO:\n${JSON.stringify(fmt(reading),null,2)}\n\nON HOLD - Animes:\n${JSON.stringify(fmt(holdA),null,2)}\n\nON HOLD - Mangás:\n${JSON.stringify(fmt(holdM),null,2)}`;
 
-=== ON HOLD - Animes ===
-${JSON.stringify(holdA,null,2)}
+  return `Você é especialista em anime e mangá. Analise o perfil de "${state.username}" em português.
 
-=== ON HOLD - Mangás ===
-${JSON.stringify(holdM,null,2)}
+${datasection}
 
-=== PERFIL ===
-Gêneros curtidos: ${liked('genres').join(', ')||'não definido'}
-Gêneros não curtidos: ${disliked('genres').join(', ')||'não definido'}
-Temas curtidos: ${liked('themes').join(', ')||'não definido'}
-Demografias preferidas: ${liked('demographics').join(', ')||'não definido'}
-Limite animes: ${p.animeLimit} | Ativos: ${watching.length}
-Limite mangás: ${p.mangaLimit} | Ativos: ${reading.length}
+=== PERFIL DE GOSTOS ===
+Gêneros curtidos: ${liked_g('genres').join(', ')||'não definido'}
+Gêneros não curtidos: ${disliked_g('genres').join(', ')||'não definido'}
+Temas curtidos: ${liked_g('themes').join(', ')||'não definido'}
+Demografias preferidas: ${liked_g('demographics').join(', ')||'não definido'}
+Limite animes simultâneos: ${p.animeLimit} | Ativos agora: ${watching.length}
+Limite mangás simultâneos: ${p.mangaLimit} | Ativos agora: ${reading.length}
 
 === QUESTIONÁRIO ===
 ${answers||'Não respondido'}
 
-INSTRUÇÕES:
-- Use as notas pessoais (campo "notes") como sinal FORTE — se diz "genérico", "chato", sugira dropar
-- Considere o perfil de gostos para personalizar sugestões
-- Se chegando ao limite, não sugira muitas obras novas
-- Seja direto e específico, não genérico
+=== FOCO DESTA ANÁLISE ===
+${focusInstructions[focus]||focusInstructions.all}
 
-Responda APENAS com JSON válido (sem markdown):
-{
-  "priorities": [{"title":"...","reason":"...","urgency":"high|medium|low"}],
-  "drop_candidates": [{"title":"...","reason":"..."}],
-  "onhold_analysis": [{"title":"...","recommendation":"retomar|dropar|aguardar","reason":"..."}],
-  "next_works": [{"title":"...","reason":"...","type":"anime|manga"}],
-  "general_insight": "texto livre"
-}`;
+REGRAS OBRIGATÓRIAS:
+- Responda SOMENTE com JSON puro, sem nenhum texto antes ou depois, sem \`\`\`json, sem markdown
+- Use notas pessoais (campo "notas_pessoais") como sinal FORTE de opinião do usuário
+- Seja direto e específico, nunca genérico
+- Se o usuário está no limite de obras, não sugira começar muitas coisas novas
+
+JSON esperado (use apenas os campos relevantes ao foco, os outros podem ser arrays vazios []):
+{"priorities":[{"title":"","reason":"","urgency":"high|medium|low"}],"drop_candidates":[{"title":"","reason":""}],"onhold_analysis":[{"title":"","recommendation":"retomar|dropar|aguardar","reason":""}],"next_works":[{"title":"","reason":"","type":"anime|manga"}],"general_insight":""}`;
 }
 
 async function callClaude(prompt,key){
@@ -760,8 +834,16 @@ async function callGemini(prompt,key){
 
 function renderInsights(raw){
   let data;
-  try{data=JSON.parse(raw.replace(/```json|```/g,'').trim());}
-  catch(e){document.getElementById('insights-content').innerHTML=`<div class="icard"><div class="icard-body">${raw.replace(/\n/g,'<br>')}</div></div>`;return;}
+  try{data=extractJSON(raw);}
+  catch(e){
+    // fallback: show raw as plain text nicely
+    document.getElementById('insights-content').innerHTML=`
+      <div class="icard" style="border:1px solid var(--amber)">
+        <div style="color:var(--amber);font-size:.8rem;margin-bottom:.75rem">⚠️ A IA retornou texto livre em vez de JSON estruturado. Exibindo como texto:</div>
+        <div class="icard-body" style="line-height:1.8;white-space:pre-wrap">${raw.replace(/</g,'&lt;')}</div>
+      </div>`;
+    return;
+  }
   const uc={high:'var(--red)',medium:'var(--amber)',low:'var(--green)'};
   const ul={high:'🔴 Alta prioridade',medium:'🟡 Média prioridade',low:'🟢 Baixa prioridade'};
   const rc={retomar:'var(--green)',dropar:'var(--red)',aguardar:'var(--amber)'};
